@@ -1,0 +1,22 @@
+<html>
+  <body>
+    <div id="table">
+      {{ table | safe }}
+    </div>
+  </body>
+</html>
+
+<style>
+table, td, th {
+  border: 1px solid;
+  text-align: center;
+}
+th{
+  text-transform: uppercase;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+</style>
