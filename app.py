@@ -1,24 +1,19 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from elasticsearch import Elasticsearch
-
+import pandas as pd
 
 es_client = Elasticsearch(
     "http://127.0.0.1:9200",
     http_auth=["elastic", "changeme"],
 )
-
-
-# es_client.delete(index="assignment", ignore=404, id="1")
-
 print(es_client.ping())
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 
 
-@app.route("/status", methods=["GET"])
+@app.route("/")
 def index():
-    results = es_client.get(index="assignment", id="test1")
-    return jsonify(results["_source"])
+    return render_template("searchpage.html")
 
 
 @app.route("/insert_data", methods=["POST"])
@@ -36,24 +31,29 @@ def insert_data():
         "email": email,
         "tags": tags,
     }
-    print(data)
     result = es_client.index(index="assignment", id=id, body=data)
-
-    print(result)
-
     return jsonify(result)
 
 
-@app.route("/search", methods=["POST"])
+@app.route("/search", methods=["GET"])
 def search():
-    keyword = request.args["keyword"]
-    print(keyword)
+    try:
+        keyword = request.args.get("keyword")
+        # Elastic search query for both title and tags fields
+        body = {
+            "query": {"multi_match": {"query": keyword, "fields": ["title", "tags"]}}
+        }
+        res = es_client.search(index="assignment", body=body)
+        # Extracting data from matched results
+        result = [i["_source"] for i in res["hits"]["hits"]]
 
-    body = {"query": {"multi_match": {"query": keyword, "fields": ["title", "tags"]}}}
-
-    res = es_client.search(index="assignment", body=body)
-
-    return jsonify(res["hits"]["hits"])
+        # Converting the Json result to csv to show it in table view
+        columns = ["title", "description", "email", "tags"]
+        df = pd.DataFrame(result, columns=columns)
+        table = df.to_html(index=False)
+        return render_template("at-leaderboard.html", table=table)
+    except Exception as e:
+        return f"Error: {e}"
 
 
 if __name__ == "__main__":
